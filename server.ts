@@ -1,4 +1,6 @@
 import 'zone.js/dist/zone-node';
+import * as bodyParser from 'body-parser';
+import axios from 'axios';
 
 import { APP_BASE_HREF } from '@angular/common';
 import { ngExpressEngine } from '@nguniversal/express-engine';
@@ -11,6 +13,8 @@ import { AppServerModule } from './src/main.server';
 // The Express app is exported so that it can be used by serverless Functions.
 export function app(): express.Express {
   const server = express();
+  server.use(bodyParser.json());
+  server.use(bodyParser.urlencoded({ extended: true }));
   const distFolder = join(process.cwd(), 'dist/poc-ssr/browser');
   const indexHtml = existsSync(join(distFolder, 'index.original.html'))
     ? 'index.original.html'
@@ -39,27 +43,31 @@ export function app(): express.Express {
 
   // All regular routes use the Universal engine
   server.get('*', (req, res) => {
-    const { method, baseUrl, body, params, query } = req;
+    const { method, body } = req;
     console.log('bateu get')
     res.render(indexHtml, {
       req,
       cache: false,
       providers: [
         { provide: APP_BASE_HREF, useValue: req.baseUrl },
-        { provide: 'body', useValue: { method, baseUrl, body, params, query } },
+        { provide: 'body', useValue: { method, body, } },
       ],
     });
   });
 
-  server.post('*', (req, res) => {
-    const { method, baseUrl, body, params, query } = req;
+  server.post('*', async (req, res) => {
+    const {data} = await axios({
+      method: "get",
+      url: "https://pokeapi.co/api/v2/pokemon/ditto",
+    })
+    const { method, body } = req;
     console.log('bateu post')
     res.render(indexHtml, {
       req,
       cache: false,
       providers: [
         { provide: APP_BASE_HREF, useValue: req.baseUrl },
-        { provide: 'body', useValue: { method, baseUrl, body, params, query } },
+        { provide: 'body', useValue: { method, body: {...body, ...data}, } },
       ],
     });
   });
